@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<file:config name="File_Config" doc:name="File Config" doc:id="59160a83-daf2-4f82-b80c-63223881820e" >
+		<file:connection />
+	</file:config>
+	<flow name="rocket-orders-batchFlow" doc:id="a6841141-3133-46ff-bbdf-b14ecf498505" >
+		<scheduler doc:name="Scheduler" doc:id="d70fae9d-698b-4133-b2e3-30616e9ac7fa" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="30" timeUnit="SECONDS"/>
+			</scheduling-strategy>
+		</scheduler>
+		<file:read doc:id="ab28eb30-756d-42d4-9d3b-96d7d21f5780" config-ref="File_Config" path="C:\Users\KiranKumarPonna\Documents\MuleFileFolder\orders.csv"/>
+		<batch:job jobName="rocket-orders-batchBatch_Job" doc:id="346df24b-1e54-48cb-9df9-75b9f4b90e11" >
+			<batch:process-records >
+				<batch:step name="isOrderInDB" doc:id="b977824b-d3e1-451f-b5b5-d0baeed0006d" >
+					<ee:transform doc:name="Transform Message" doc:id="5bf55c73-8ea7-4de8-aa4a-4b78c102db92">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<db:select doc:id="04887373-797a-463c-99f7-6fb5eb5ac462" target="exists" targetValue="#[(sizeOf(payload as Array) &gt; 0)]" config-ref="Database_Config">
+						<db:sql >select order_id from sR00A5xNIk.orders where customer_id = :cusId and address_id = :addId and order_items_count = :ordItmCnt and order_total_price = :ordTotPrice;</db:sql>
+						<db:input-parameters ><![CDATA[#[{
+	cusId: payload.CUSTOMERID,
+	addId: payload.ADDRESSID,
+	ordItmCnt: payload.ORDERITEMS,
+	ordTotPrice: payload.ORDERTOTALPRICE
+}]]]></db:input-parameters>
+					</db:select>
+				</batch:step>
+				<batch:step name="writeToDBIfNoExists" doc:id="8ee9eafa-b3d8-4f89-906f-761781e349d9" acceptExpression="#[not vars.exists]">
+					<batch:aggregator doc:name="Batch Aggregator" doc:id="845c0a4a-ac70-41b7-a3ac-5b42e7389419" size="5">
+						<ee:transform doc:name="Transform Message" doc:id="e379f516-1546-424a-8b15-86539e2a021f" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+flatten (payload map ($ map {
+	CUSTOMERID: $.CUSTOMERID,
+	ADDRESSID: $.ADDRESSID,
+	ORDERITEMS: $.ORDERITEMS,
+	ORDERTOTALPRICE: $.ORDERTOTALPRICE
+}))]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<db:bulk-insert doc:name="Bulk insert" doc:id="e043d592-b589-4573-9619-16e644fcd89d" config-ref="Database_Config">
+							<db:sql >INSERT INTO sR00A5xNIk.orders (`customer_id`, `address_id`, `order_items_count`, `order_total_price`) VALUES (:CUSTOMERID,:ADDRESSID,:ORDERITEMS,:ORDERTOTALPRICE)</db:sql>
+						</db:bulk-insert>
+						<logger level="INFO" doc:name="Logger" doc:id="3f382eb3-1f84-4b0b-bdf7-7e05f67956b8" message="#[payload]"/>
+					</batch:aggregator>
+				</batch:step>
+			</batch:process-records>
+			<batch:on-complete >
+				<logger level="INFO" doc:name="Logger" doc:id="1c28df0a-148b-4816-a1b0-8238ae6dbcca" message="#[payload]"/>
+			</batch:on-complete>
+		</batch:job>
+	</flow>
+</mule>

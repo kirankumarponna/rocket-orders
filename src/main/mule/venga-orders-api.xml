@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd 
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+    <http:listener-config name="venga-orders-api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <apikit:config name="venga-orders-api-config" api="api\venga-orders-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <db:config name="Database_Config" doc:name="Database Config" doc:id="15359da6-622f-43a4-ba94-302815f0ad50" >
+		<db:my-sql-connection host="remotemysql.com" port="3306" user="sR00A5xNIk" password="GfZjXfMqtW" database="sR00A5xNIk" />
+	</db:config>
+	<flow name="venga-orders-api-main">
+        <http:listener config-ref="venga-orders-api-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="venga-orders-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="venga-orders-api-console">
+        <http:listener config-ref="venga-orders-api-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="venga-orders-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="put:\orders\(order-id):venga-orders-api-config">
+        <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" doc:id="841d8191-8364-4a7d-b9f6-fe26510efa28">
+            <ee:variables>
+                <ee:set-variable variableName="order-id"><![CDATA[attributes.uriParams.'order-id']]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <db:select doc:id="5045f231-27e0-47e1-9fe0-2a4b693c62e1" config-ref="Database_Config">
+			<db:sql >select customer_id,address_id,order_items_count,order_total_price,order_created_date FROM sR00A5xNIk.orders where order_id = :orderId</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	orderId: vars."order-id"
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="a77b1e20-ad34-413a-a8c5-0ffe75f2915e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	order_id: vars.'order-id',
+    customer_id: payload[0].customer_id,
+    address_id: payload[0].address_id,
+    order_items_count: payload[0].order_items_count,
+    order_total_price: payload[0].order_total_price,
+    order_created_date: payload[0].order_created_date
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+    </flow>
+    <flow name="get:\orders:venga-orders-api-config">
+        <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd" doc:id="5b6f049b-9ad0-48f3-a12a-1954450951e6">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+[
+  {
+    order_id: 977,
+    customer_id: "CUSMLY0098",
+    address_id: "MLYKLM0032",
+    order_items_count: 2,
+    order_total_price: 555.44,
+    order_created_date: "2019-11-26 07:27:40"
+  }, 
+  {
+    order_id: 1001,
+    customer_id: "CUSIND0098",
+    address_id: "INDDEL0032",
+    order_items_count: 1,
+    order_total_price: 200.0,
+    order_created_date: "2019-11-26 07:27:40"
+  }
+]]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\orders\(order-id):venga-orders-api-config">
+        <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" doc:id="13173597-17f3-4785-98ee-5d6c8278fe5f">
+            <ee:variables>
+                <ee:set-variable variableName="order-id"><![CDATA[attributes.uriParams.'order-id']]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+		<db:select doc:name="Copy_of_Select" doc:id="d074ce32-462b-4a9f-ac93-e6a6bf63e99b" config-ref="Database_Config" >
+			<db:sql >select customer_id,address_id,order_items_count,order_total_price,order_created_date FROM sR00A5xNIk.orders where order_id = :orderId</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	orderId: vars."order-id"
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Copy_of_Transform Message" doc:id="d2aa698b-f797-4825-a280-783666d8d7d1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	order_id: vars.'order-id',
+    customer_id: payload[0].customer_id,
+    address_id: payload[0].address_id,
+    order_items_count: payload[0].order_items_count,
+    order_total_price: payload[0].order_total_price,
+    order_created_date: payload[0].order_created_date
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+    </flow>
+    <flow name="post:\orders:application\json:venga-orders-api-config">
+        <db:insert doc:name="Insert" doc:id="1d1b84b6-f9c3-4616-9784-f32a5c5b1db5" config-ref="Database_Config" target="dbOut">
+			<db:sql >INSERT INTO orders (`customer_id`, `address_id`, `order_items_count`, `order_total_price`) VALUES (:customerId,:addressId,:orderItemsCount,:orderTotalPrice)</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	customerId: payload.customer_id,
+	addressId: payload.address_id,
+	orderItemsCount: payload.order_items_count,
+	orderTotalPrice: payload.order_total_price
+}]]]></db:input-parameters>
+		</db:insert>
+		<db:select doc:name="Select" doc:id="97bcee56-a208-4988-8008-3546023b2e10" config-ref="Database_Config">
+			<db:sql >SELECT order_id, customer_id, address_id, order_items_count, order_total_price,order_created_date FROM orders where customer_id = :customerId and address_id = :addressId and order_items_count = :orderItemsCount and order_total_price = :orderTotalPrice</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	customerId: payload.customer_id,
+	addressId: payload.address_id,
+	orderItemsCount: payload.order_items_count,
+	orderTotalPrice: payload.order_total_price
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd" doc:id="21193287-5e36-4f83-bdc9-5e1be2c5d638">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	order_id: payload[0].'order_id',
+    customer_id: payload[0].customer_id,
+    address_id: payload[0].address_id,
+    order_items_count: payload[0].order_items_count,
+    order_total_price: payload[0].order_total_price,
+    order_created_date: payload[0].order_created_date
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+</mule>
